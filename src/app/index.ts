@@ -16,7 +16,7 @@ export async function initServer() {
   app.use(cors());
   app.use(bodyParser.json());
 
-  app.get("/health", (req, res) =>
+  app.use("/health", (req, res) =>
     res.status(200).json({ message: "Health is Good!" })
   );
 
