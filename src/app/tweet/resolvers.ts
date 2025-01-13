@@ -137,19 +137,33 @@ const mutations = {
 
     if (isRateLimited) {
       throw new Error("Please wait for 10 seconds!");
-    }  
-    
+    }
+
+    const firstPage = 0;
+    const limit = 10;
+    const cacheKey = `ALL_TWEETS_${firstPage}_${limit}`;
 
     // Create the new tweet in the database
     const newTweet = await TweetService.createTweet(payload, ctx);
 
     // // Log for debugging
     // console.log({ newTweet });
-    await redisClient?.setex(rateLimitKey, 10, ctx.user?.id as string);  
-   
+    await redisClient?.setex(rateLimitKey, 10, ctx.user?.id as string);
 
-    // Optional: Invalidate all other tweet pages to force cache rebuild
-    await redisClient?.del(`ALL_TWEETS_*`);
+    // Update or invalidate the cache
+    const cachedTweets = await redisClient?.get(cacheKey);
+
+    if (cachedTweets) {
+      const newCacheData = [newTweet, ...JSON.parse(cachedTweets)];
+
+      // Ensure the cache doesn't exceed the limit (e.g., first page only)
+      const limitedCacheData = newCacheData.slice(0, limit);
+
+      await redisClient?.set(cacheKey, JSON.stringify(limitedCacheData));
+    } else {
+      // Set a new cache if it doesn't exist
+      await redisClient?.set(cacheKey, JSON.stringify([newTweet]));
+    }
 
     return newTweet;
   },
